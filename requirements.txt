@@ -1,0 +1,21 @@
+# Core framework
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-dotenv
+
+# LangChain ecosystem
+langchain
+langchain-core
+langchain-openai
+langchain-community
+langgraph
+
+# Vector DB
+pinecone
+
+# HuggingFace
+huggingface_hub
+
+# Utilities
+httpx
