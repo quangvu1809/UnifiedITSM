@@ -141,36 +141,44 @@ def seed_sample_incidents():
     settings = get_settings()
     samples = [
         {
+            "number": "INC0010001",
             "text": "Production server không response từ 14:30. Users không thể login vào CRM. Error: Connection timeout to database.",
-            "metadata": {"description": "Production server down - CRM inaccessible", "impact": "500+ users", "priority": "P1", "category": "Database", "suggested_team": "DBA Team"},
+            "metadata": {"number": "INC0010001", "description": "Production server down - CRM inaccessible", "impact": "500+ users", "priority": "P1", "category": "Database", "suggested_team": "DBA Team"},
         },
         {
+            "number": "INC0010002",
             "text": "Website load chậm >10s. CPU 95%, memory leak suspected.",
-            "metadata": {"description": "Website performance degradation - high CPU", "impact": "200 users", "priority": "P2", "category": "Performance", "suggested_team": "SRE Team"},
+            "metadata": {"number": "INC0010002", "description": "Website performance degradation - high CPU", "impact": "200 users", "priority": "P2", "category": "Performance", "suggested_team": "SRE Team"},
         },
         {
+            "number": "INC0010003",
             "text": "API sync SAP-Salesforce fail. Error 401 Unauthorized.",
-            "metadata": {"description": "SAP-Salesforce integration auth failure", "impact": "Order processing delay", "priority": "P3", "category": "Integration", "suggested_team": "Dev Team"},
+            "metadata": {"number": "INC0010003", "description": "SAP-Salesforce integration auth failure", "impact": "Order processing delay", "priority": "P3", "category": "Integration", "suggested_team": "Dev Team"},
         },
         {
+            "number": "INC0010004",
             "text": "Email server không gửi được email. SMTP connection refused port 587.",
-            "metadata": {"description": "Email server SMTP failure", "impact": "All employees", "priority": "P2", "category": "Infrastructure", "suggested_team": "Network Team"},
+            "metadata": {"number": "INC0010004", "description": "Email server SMTP failure", "impact": "All employees", "priority": "P2", "category": "Infrastructure", "suggested_team": "Network Team"},
         },
         {
+            "number": "INC0010005",
             "text": "User không login được VPN. Error: Certificate expired.",
-            "metadata": {"description": "VPN certificate expiration", "impact": "Remote workers", "priority": "P3", "category": "Security", "suggested_team": "Security Team"},
+            "metadata": {"number": "INC0010005", "description": "VPN certificate expiration", "impact": "Remote workers", "priority": "P3", "category": "Security", "suggested_team": "Security Team"},
         },
         {
+            "number": "INC0010006",
             "text": "Database replication lag > 30 minutes. Slave không sync với master.",
-            "metadata": {"description": "DB replication lag", "impact": "Reporting delayed", "priority": "P2", "category": "Database", "suggested_team": "DBA Team"},
+            "metadata": {"number": "INC0010006", "description": "DB replication lag", "impact": "Reporting delayed", "priority": "P2", "category": "Database", "suggested_team": "DBA Team"},
         },
         {
+            "number": "INC0010007",
             "text": "Kubernetes pod CrashLoopBackOff. OOMKilled - container memory limit exceeded.",
-            "metadata": {"description": "K8s pod OOM crash loop", "impact": "Microservice down", "priority": "P1", "category": "Infrastructure", "suggested_team": "DevOps Team"},
+            "metadata": {"number": "INC0010007", "description": "K8s pod OOM crash loop", "impact": "Microservice down", "priority": "P1", "category": "Infrastructure", "suggested_team": "DevOps Team"},
         },
         {
+            "number": "INC0010008",
             "text": "SSL certificate hết hạn trên load balancer. Browser hiện warning không an toàn.",
-            "metadata": {"description": "SSL cert expired on LB", "impact": "All web users", "priority": "P1", "category": "Security", "suggested_team": "Network Team"},
+            "metadata": {"number": "INC0010008", "description": "SSL cert expired on LB", "impact": "All web users", "priority": "P1", "category": "Security", "suggested_team": "Network Team"},
         },
     ]
 
@@ -183,7 +191,7 @@ def seed_sample_incidents():
         meta = sample["metadata"]
         meta["timestamp"] = datetime.utcnow().isoformat()
         index.upsert(
-            vectors=[{"id": f"seed-{uuid4().hex[:8]}", "values": vector, "metadata": meta}],
+            vectors=[{"id": sample["number"], "values": vector, "metadata": meta}],
             namespace=settings.INC_NAMESPACE,
         )
 

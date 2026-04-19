@@ -365,12 +365,13 @@ export default function App() {
         setTriageForm({
           number: inc.number,
           caller: inc.caller || "System",
-          priority: inc.priority,
+          severity: inc.priority,
           category: inc.category,
           subcategory: inc.subcategory || "",
-          state: inc.state || "Resolved",
+          state: inc.state || "In Progress",
           description: inc.description || inc.content,
           assignmentGroup: inc.assignmentGroup || "L1 Support",
+          resolution: inc.resolution || ""
         });
         setResForm({
           summary: inc.title || "",
@@ -877,7 +878,7 @@ export default function App() {
               <div style={{ marginTop: 40, borderTop: `1px solid ${darkMode ? "#374151" : "#e2e8f0"}`, paddingTop: 24 }}>
                 <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: darkMode ? "#9ca3af" : "#4b5563" }}>🕰️ Incident History (Audit Log)</h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {incidentHistory.reverse().map((h, i) => (
+                  {[...incidentHistory].reverse().map((h, i) => (
                     <div key={i} style={{ display: "flex", gap: 12 }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#4f46e5", zIndex: 1 }} />
@@ -1248,7 +1249,21 @@ export default function App() {
             {filteredDashboard.length > 0 ? (
               <div style={{ display: "grid", gap: 8 }}>
                 {filteredDashboard.map((inc, i) => (
-                  <div key={inc.id || i} style={{ padding: 14, borderRadius: 10, background: darkMode ? "#1a1b2e" : "#f9fafb", border: `1px solid ${darkMode ? "#3a3b5c" : "#e5e7eb"}` }}>
+                  <div 
+                    key={inc.id || i} 
+                    onClick={() => handleSelectIncident(inc.metadata?.number || inc.id)}
+                    style={{ 
+                      padding: 14, 
+                      borderRadius: 10, 
+                      background: darkMode ? "#1a1b2e" : "#f9fafb", 
+                      border: `1px solid ${darkMode ? "#3a3b5c" : "#e5e7eb"}`,
+                      cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                    className="dashboard-item"
+                    onMouseOver={(e) => e.currentTarget.style.borderColor = "#4f46e5"}
+                    onMouseOut={(e) => e.currentTarget.style.borderColor = darkMode ? "#3a3b5c" : "#e5e7eb"}
+                  >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         {inc.metadata?.priority && (
@@ -1276,10 +1291,8 @@ export default function App() {
                             padding: "2px 6px",
                             borderRadius: "4px",
                             color: "#ef4444",
-                            transition: "background 0.2s"
+                            zIndex: 2
                           }}
-                          onMouseOver={(e) => e.target.style.background = darkMode ? "#2d1a1a" : "#fef2f2"}
-                          onMouseOut={(e) => e.target.style.background = "transparent"}
                           title="Delete Incident"
                         >
                           🗑️
@@ -1287,10 +1300,7 @@ export default function App() {
                       </div>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: darkMode ? "#e5e7eb" : "#374151" }}>
-                      <span 
-                        onClick={() => handleSelectIncident(inc.metadata?.number || inc.id)}
-                        style={{ color: "#4f46e5", marginRight: 8, cursor: "pointer", textDecoration: "underline" }}
-                      >
+                      <span style={{ color: "#4f46e5", marginRight: 8, textDecoration: "underline" }}>
                         {inc.metadata?.number || inc.id}
                       </span>
                       {inc.metadata?.description || inc.metadata?.title || "No description"}
