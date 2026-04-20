@@ -47,12 +47,10 @@ class ResolutionResponse(BaseModel):
 
 
 class EscalationRequest(BaseModel):
-    id: str = ""
-    summary: str
-    to: str = "L2 Support"
+    id: str
+    to: str
+    cc: str = ""
     urgency: str = "High"
-    done: str = ""
-    ask: str = ""
     provider: str = "openai"
 
 

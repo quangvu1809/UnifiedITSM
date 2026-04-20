@@ -3,6 +3,7 @@ from pinecone import Pinecone
 from config import get_settings
 from datetime import datetime
 from uuid import uuid4
+from typing import Optional
 
 # Lazy-loaded globals
 _index = None
@@ -55,7 +56,7 @@ def upsert_incident(text: str, metadata: dict, namespace: str = None, vector_id:
     return incident_id
 
 
-def query_similar(text: str, top_k: int = 5, namespace: str = None) -> list[dict]:
+def query_similar(text: str, top_k: int = 5, namespace: str = None, metadata: dict = None) -> list[dict]:
     """Search Pinecone for similar items in a specific namespace."""
     settings = get_settings()
     index = get_pinecone_index()
@@ -69,6 +70,7 @@ def query_similar(text: str, top_k: int = 5, namespace: str = None) -> list[dict
         top_k=top_k,
         namespace=target_namespace,
         include_metadata=True,
+        filter=metadata if metadata else None
     )
 
     return [
@@ -121,14 +123,28 @@ def get_by_id(item_id: str, namespace: str = None) -> list[dict]:
     except Exception as e:
         print(f"Error in get_by_id: {e}")
         return []
+def delete_namespace(namespace: str):
+    """Delete all vectors in a namespace."""
+    try:
+        index = get_pinecone_index()
+        if index is None:
+            return False
+        index.delete(delete_all=True, namespace=namespace)
+        return True
+    except Exception as e:
+        print(f"Error in delete_namespace: {e}")
+        return False
+
+
 def delete_incident_by_id(item_id: str, namespace: Optional[str] = None):
     """Delete an incident from Pinecone by its manual ID (e.g. INCXXXXX)."""
     settings = get_settings()
     target_namespace = namespace or settings.KB_NAMESPACE
     try:
-        index = pc.Index(settings.PINECONE_INDEX)
-        # We need to find the internal Pinecone ID first if manually provided number differs,
-        # but in our current setup, we use the INC number as the vector ID.
+        index = get_pinecone_index()
+        if index is None:
+            return False
+        # In our project, the 'id' of the vector is often the Incident Number (e.g. INC0010001)
         index.delete(ids=[item_id], namespace=target_namespace)
         return True
     except Exception as e:
@@ -143,42 +159,42 @@ def seed_sample_incidents():
         {
             "number": "INC0010001",
             "text": "Production server không response từ 14:30. Users không thể login vào CRM. Error: Connection timeout to database.",
-            "metadata": {"number": "INC0010001", "description": "Production server down - CRM inaccessible", "impact": "500+ users", "priority": "P1", "category": "Database", "suggested_team": "DBA Team"},
+            "metadata": {"number": "INC0010001", "description": "Production server down - CRM inaccessible", "impact": "500+ users", "priority": "P1", "category": "Database", "subcategory": "Oracle", "suggested_team": "DBA Team", "state": "Resolved"},
         },
         {
             "number": "INC0010002",
             "text": "Website load chậm >10s. CPU 95%, memory leak suspected.",
-            "metadata": {"number": "INC0010002", "description": "Website performance degradation - high CPU", "impact": "200 users", "priority": "P2", "category": "Performance", "suggested_team": "SRE Team"},
+            "metadata": {"number": "INC0010002", "description": "Website performance degradation - high CPU", "impact": "200 users", "priority": "P2", "category": "Performance", "subcategory": "Web Server", "suggested_team": "SRE Team", "state": "Resolved"},
         },
         {
             "number": "INC0010003",
             "text": "API sync SAP-Salesforce fail. Error 401 Unauthorized.",
-            "metadata": {"number": "INC0010003", "description": "SAP-Salesforce integration auth failure", "impact": "Order processing delay", "priority": "P3", "category": "Integration", "suggested_team": "Dev Team"},
+            "metadata": {"number": "INC0010003", "description": "SAP-Salesforce integration auth failure", "impact": "Order processing delay", "priority": "P3", "category": "Integration", "subcategory": "SAP Sync", "suggested_team": "Dev Team", "state": "Resolved"},
         },
         {
             "number": "INC0010004",
             "text": "Email server không gửi được email. SMTP connection refused port 587.",
-            "metadata": {"number": "INC0010004", "description": "Email server SMTP failure", "impact": "All employees", "priority": "P2", "category": "Infrastructure", "suggested_team": "Network Team"},
+            "metadata": {"number": "INC0010004", "description": "Email server SMTP failure", "impact": "All employees", "priority": "P2", "category": "Infrastructure", "subcategory": "Email", "suggested_team": "Network Team", "state": "Resolved"},
         },
         {
             "number": "INC0010005",
             "text": "User không login được VPN. Error: Certificate expired.",
-            "metadata": {"number": "INC0010005", "description": "VPN certificate expiration", "impact": "Remote workers", "priority": "P3", "category": "Security", "suggested_team": "Security Team"},
+            "metadata": {"number": "INC0010005", "description": "VPN certificate expiration", "impact": "Remote workers", "priority": "P3", "category": "Security", "subcategory": "VPN", "suggested_team": "Security Team", "state": "Resolved"},
         },
         {
             "number": "INC0010006",
             "text": "Database replication lag > 30 minutes. Slave không sync với master.",
-            "metadata": {"number": "INC0010006", "description": "DB replication lag", "impact": "Reporting delayed", "priority": "P2", "category": "Database", "suggested_team": "DBA Team"},
+            "metadata": {"number": "INC0010006", "description": "DB replication lag", "impact": "Reporting delayed", "priority": "P2", "category": "Database", "subcategory": "Postgres", "suggested_team": "DBA Team", "state": "Resolved"},
         },
         {
             "number": "INC0010007",
             "text": "Kubernetes pod CrashLoopBackOff. OOMKilled - container memory limit exceeded.",
-            "metadata": {"number": "INC0010007", "description": "K8s pod OOM crash loop", "impact": "Microservice down", "priority": "P1", "category": "Infrastructure", "suggested_team": "DevOps Team"},
+            "metadata": {"number": "INC0010007", "description": "K8s pod OOM crash loop", "impact": "Microservice down", "priority": "P1", "category": "Infrastructure", "subcategory": "Kubernetes", "suggested_team": "DevOps Team", "state": "Resolved"},
         },
         {
             "number": "INC0010008",
             "text": "SSL certificate hết hạn trên load balancer. Browser hiện warning không an toàn.",
-            "metadata": {"number": "INC0010008", "description": "SSL cert expired on LB", "impact": "All web users", "priority": "P1", "category": "Security", "suggested_team": "Network Team"},
+            "metadata": {"number": "INC0010008", "description": "SSL cert expired on LB", "impact": "All web users", "priority": "P1", "category": "Security", "subcategory": "SSL", "suggested_team": "Network Team", "state": "Resolved"},
         },
     ]
 

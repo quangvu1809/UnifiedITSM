@@ -1,40 +1,13 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import ChatAssistant from "./components/Chat/ChatAssistant";
+import { useLanguage } from "./context/LanguageContext";
+import SlaMonitor from "./components/SLA/SlaMonitor";
 
 // ============================================
-// CONSTANTS
+// CONSTANTS (Static parts moved here)
 // ============================================
-const MODULES = [
-  { id: "chatbot", icon: "🧤", label: "AI Assistant", desc: "Troubleshooting & Support" },
-  { id: "triage", icon: "🎫", label: "Incident Form", desc: "Standard IT Form" },
-  { id: "rca", icon: "🔍", label: "Analysis", desc: "Root Cause Investigation" },
-  { id: "resolution", icon: "✅", label: "Resolution", desc: "Finalize & Learn" },
-  { id: "escalation", icon: "📧", label: "Escalation", desc: "Soạn email" },
-  { id: "sla", icon: "⏱️", label: "SLA Timer", desc: "Tính thời gian SLA" },
-  { id: "dashboard", icon: "📊", label: "Dashboard", desc: "Incident history" },
-];
-
-const SAMPLES = {
-  triage: [
-    { label: "Production Down", icon: "🔴", severity: "P1", tag: "Critical", description: "Production server không response từ 14:30. Users không thể login vào CRM. Error: Connection timeout to database.", impact: "500+ users, business critical", color: "#dc2626" },
-    { label: "Performance", icon: "🟠", severity: "P2", tag: "High", description: "Website load chậm >10s. CPU 95%, memory leak suspected.", impact: "200 users, degraded", color: "#ea580c" },
-    { label: "Integration", icon: "🟡", severity: "P3", tag: "Medium", description: "API sync SAP-Salesforce fail. Error 401 Unauthorized.", impact: "Order processing delay", color: "#ca8a04" },
-  ],
-  rca: [
-    { label: "🗄️ DB Connection", symptoms: "App không connect được database", logs: "ERROR: Connection pool exhausted\nMax connections: 100\nActive: 100\nWaiting: 47", timeline: "14:30 - Alert triggered\n14:35 - Team notified\n14:40 - Investigation started" },
-  ],
-};
-
 const AFFECTED_SYSTEMS = ["CRM", "Database", "API Gateway", "Email Server", "VPN", "Load Balancer", "Kubernetes", "Active Directory", "SAP", "Salesforce"];
-
 const ESCALATE_TO = ["L2 Support", "L3 Support", "Dev Team", "DBA Team", "Network Team", "Security Team", "Vendor"];
-
-const SLA_TARGETS = {
-  P1: { hours: 1, label: "Critical - 1 giờ" },
-  P2: { hours: 4, label: "High - 4 giờ" },
-  P3: { hours: 8, label: "Medium - 8 giờ" },
-  P4: { hours: 24, label: "Low - 24 giờ" },
-};
 
 // ============================================
 // UTILITIES
@@ -128,6 +101,35 @@ const getStyles = (dark) => ({
 // MAIN APP
 // ============================================
 export default function App() {
+  const { lang, setLang, t } = useLanguage();
+
+  // Dynamic Constants
+  const MODULES = useMemo(() => [
+    { id: "chatbot", icon: "🧤", label: t("chatbot"), desc: t("chatbotDesc") },
+    { id: "triage", icon: "🎫", label: t("triage"), desc: t("triageDesc") },
+    { id: "rca", icon: "🔍", label: t("rca"), desc: t("rcaDesc") },
+    { id: "escalation", icon: "📧", label: t("escalation"), desc: t("escalationDesc") },
+    { id: "sla", icon: "⏱️", label: t("sla"), desc: t("slaDesc") },
+    { id: "dashboard", icon: "📊", label: t("dashboard"), desc: t("dashboardDesc") },
+  ], [t]);
+
+  const SAMPLES = useMemo(() => ({
+    triage: [
+      { label: t("Production Down"), icon: "🔴", severity: "P1", tag: "Critical", description: lang === "vi" ? "Production server không response từ 14:30. Users không thể login vào CRM. Error: Connection timeout to database." : "Production server not responding since 14:30. Users cannot login to CRM. Error: Connection timeout to database.", impact: "500+ users, business critical", color: "#dc2626" },
+      { label: t("Performance"), icon: "🟠", severity: "P2", tag: "High", description: lang === "vi" ? "Website load chậm >10s. CPU 95%, memory leak suspected." : "Website slow response >10s. CPU 95%, memory leak suspected.", impact: "200 users, degraded", color: "#ea580c" },
+      { label: t("Integration"), icon: "🟡", severity: "P3", tag: "Medium", description: lang === "vi" ? "API sync SAP-Salesforce fail. Error 401 Unauthorized." : "API sync SAP-Salesforce fail. Error 401 Unauthorized.", impact: "Order processing delay", color: "#ca8a04" },
+    ],
+    rca: [
+      { label: "🗄️ DB Connection", symptoms: lang === "vi" ? "App không connect được database" : "App cannot connect to database", logs: "ERROR: Connection pool exhausted\nMax connections: 100\nActive: 100\nWaiting: 47", timeline: lang === "vi" ? "14:30 - Alert triggered\n14:35 - Team notified\n14:40 - Investigation started" : "14:30 - Alert triggered\n14:35 - Team notified\n14:40 - Investigation started" },
+    ],
+  }), [lang, t]);
+
+  const SLA_TARGETS = useMemo(() => ({
+    P1: { hours: 1, label: lang === "vi" ? "Critical - 1 giờ" : "Critical - 1 hour" },
+    P2: { hours: 4, label: lang === "vi" ? "High - 4 giờ" : "High - 4 hours" },
+    P3: { hours: 8, label: lang === "vi" ? "Medium - 8 giờ" : "Medium - 8 hours" },
+    P4: { hours: 24, label: lang === "vi" ? "Low - 24 giờ" : "Low - 24 hours" },
+  }), [lang]);
   // Auth
   const [user, setUser] = useState(() => {
     try {
@@ -154,12 +156,12 @@ export default function App() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) { setAuthError(data.detail || "Lỗi đăng nhập"); setAuthLoading(false); return; }
+      if (!res.ok) { setAuthError(data.detail || t("authError")); setAuthLoading(false); return; }
       localStorage.setItem("auth", JSON.stringify(data));
       setUser(data);
       setAuthForm({ username: "", password: "", name: "" });
     } catch {
-      setAuthError("Không thể kết nối server");
+      setAuthError(t("connectionError"));
     }
     setAuthLoading(false);
   };
@@ -202,8 +204,7 @@ export default function App() {
     resolution: ""
   });
   const [rcaForm, setRcaForm] = useState({ symptoms: "", logs: "", timeline: "" });
-  const [resForm, setResForm] = useState({ summary: "", actions: "", outcome: "Resolved", saveToKB: true });
-  const [escForm, setEscForm] = useState({ id: "", summary: "", to: "L2 Support", urgency: "High", done: "", ask: "" });
+  const [escForm, setEscForm] = useState({ id: "", to: "", cc: "", urgency: "High" });
   const [suggestedResolution, setSuggestedResolution] = useState(null);
 
   // SLA Timer
@@ -247,7 +248,7 @@ export default function App() {
       if (settings.moderation) {
         const mod = moderateInput(JSON.stringify(body));
         if (mod.hasSensitive && provider === "openai") {
-          setError("⚠️ Phát hiện dữ liệu nhạy cảm. Chuyển sang Ollama Local hoặc xóa dữ liệu nhạy cảm.");
+          setError(lang === "vi" ? "⚠️ Phát hiện dữ liệu nhạy cảm. Chuyển sang Ollama Local hoặc xóa dữ liệu nhạy cảm." : "⚠️ Sensitive data detected. Switch to Ollama Local or remove sensitive data.");
           setLoading(false);
           return;
         }
@@ -297,7 +298,7 @@ export default function App() {
     // Only require resolution notes if the state is Resolved or Closed
     const isFinalState = triageForm.state === "Resolved" || triageForm.state === "Closed";
     if (isFinalState && !triageForm.resolution.trim()) {
-      setError("Please provide resolution notes before saving to Knowledge Base.");
+      setError(lang === "vi" ? "Vui lòng nhập ghi chú giải quyết trước khi lưu KB." : "Please provide resolution notes before saving to Knowledge Base.");
       return;
     }
     setLoading(true);
@@ -319,7 +320,7 @@ export default function App() {
         }),
       });
       if (res.ok) {
-        setResult({ type: "text", data: "Incident successfully saved to Knowledge Base! The chatbot can now search and suggest this resolution for future cases." });
+        setResult({ type: "text", data: t("saveKBSuccess") });
         setTriageForm(f => ({ ...f, state: "Resolved" }));
         loadDashboard("incident"); // Auto-refresh dashboard
       } else {
@@ -333,7 +334,7 @@ export default function App() {
   };
 
   const handleRCA = async () => {
-    if (!rcaForm.symptoms.trim()) { setError("Vui lòng nhập triệu chứng"); return; }
+    if (!rcaForm.symptoms.trim()) { setError(lang === "vi" ? "Vui lòng nhập triệu chứng" : "Please enter symptoms"); return; }
     const res = await callEndpoint("/api/rca", rcaForm);
     if (res) {
       setResult({ type: "text", data: res.analysis });
@@ -373,12 +374,6 @@ export default function App() {
           assignmentGroup: inc.assignmentGroup || "L1 Support",
           resolution: inc.resolution || ""
         });
-        setResForm({
-          summary: inc.title || "",
-          actions: inc.resolution || "",
-          outcome: inc.state || "Resolved",
-          saveToKB: true
-        });
         if (inc.history) {
           try { setIncidentHistory(JSON.parse(inc.history)); } catch { setIncidentHistory([]); }
         } else {
@@ -392,36 +387,28 @@ export default function App() {
     setLoading(false);
   };
 
-  const handleResolution = async () => {
-    if (!resForm.actions.trim()) { setError("Vui lòng nhập các actions đã thực hiện"); return; }
-    const data = await callEndpoint("/api/resolution", { summary: resForm.summary, actions: resForm.actions, outcome: resForm.outcome });
-    if (data) { 
-      setResult({ type: "text", data: data.resolution }); 
-      setLoading(false); 
-      
-      // Learn from resolution if it's a final resolution
-      if (resForm.outcome === "Resolved") {
-        await fetch(`${API_BASE}/api/incidents/resolve`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            number: triageForm.number,
-            description: triageForm.description,
-            resolution: data.resolution,
-            category: triageForm.category,
-            subcategory: triageForm.subcategory,
-            priority: triageForm.priority,
-            save_to_kb: resForm.saveToKB
-          })
-        });
-      }
-    }
-  };
 
   const handleEscalation = async () => {
-    if (!escForm.summary.trim()) { setError("Vui lòng nhập thông tin incident"); return; }
-    const data = await callEndpoint("/api/escalation", { id: escForm.id, summary: escForm.summary, to: escForm.to, urgency: escForm.urgency, done: escForm.done, ask: escForm.ask });
-    if (data) { setResult({ type: "text", data: data.email }); setLoading(false); }
+    if (!escForm.id?.trim()) { setError("Vui lòng nhập INC Number"); return; }
+    if (!escForm.to?.trim()) { setError("Vui lòng nhập email người nhận"); return; }
+    const data = await callEndpoint("/api/escalation", { id: escForm.id, to: escForm.to, cc: escForm.cc, urgency: escForm.urgency });
+    if (data) { setResult({ type: "escalation_draft", data: data.email }); setLoading(false); }
+  };
+
+  const handleSendEmail = () => {
+    if (!result || result.type !== "escalation_draft") return;
+    const emailData = result.data || "";
+    let subject = `Escalation: ${escForm.id}`;
+    let bodyText = emailData;
+    
+    const lines = emailData.split('\n');
+    if (lines.length > 0 && lines[0].toLowerCase().startsWith("subject:")) {
+        subject = lines[0].substring(8).trim();
+        bodyText = lines.slice(1).join('\n').trim();
+    }
+    
+    const mailto = `mailto:${encodeURIComponent(escForm.to)}?cc=${encodeURIComponent(escForm.cc || "")}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+    window.location.href = mailto;
   };
 
   // LangGraph full workflow
@@ -440,18 +427,43 @@ export default function App() {
   const [dashSearch, setDashSearch] = useState("");
   const [dashLoading, setDashLoading] = useState(false);
   const [dashFilter, setDashFilter] = useState("all");
+  const [dashSubFilter, setDashSubFilter] = useState("");
+  const [dashStartDate, setDashStartDate] = useState("");
+  const [dashEndDate, setDashEndDate] = useState("");
 
   const loadDashboard = async (query) => {
     setDashLoading(true);
     try {
-      const q = query || "incident";
-      const res = await fetch(`${API_BASE}/api/incidents/similar?q=${encodeURIComponent(q)}&k=20`);
+      const q = query || dashSearch || "incident server error database";
+      let url = `${API_BASE}/api/incidents/similar?q=${encodeURIComponent(q)}&k=20&kb_only=true`;
+      
+      if (dashFilter !== "all") url += `&priority=${dashFilter}`;
+      if (dashSubFilter.trim() !== "") url += `&subcategory=${encodeURIComponent(dashSubFilter.trim())}`;
+      if (dashStartDate) url += `&start_date=${new Date(dashStartDate).toISOString()}`;
+      if (dashEndDate) url += `&end_date=${new Date(dashEndDate).toISOString()}`;
+      
+      const res = await fetch(url);
       const data = await res.json();
       setDashboardData(data.incidents || []);
     } catch {
-      setError("Không thể tải dashboard data");
+      setError(lang === "vi" ? "Không thể tải dashboard data" : "Failed to load dashboard data");
     }
     setDashLoading(false);
+  };
+
+  const handleCleanup = async () => {
+    if (!window.confirm(lang === "vi" ? "Bạn có chắc chắn muốn xoá tất cả incident tạm thời? Dữ liệu Knowledge Base sẽ được giữ lại." : "Are you sure you want to clear all temporary incidents? Knowledge Base entries will be kept.")) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/incidents/cleanup`, { method: "POST" });
+      if (res.ok) {
+        setResult({ type: "text", data: lang === "vi" ? "Đã xoá sạch các incident tạm thời." : "Temporary incidents cleared successfully." });
+        loadDashboard();
+      }
+    } catch {
+      setError("Cleanup failed.");
+    }
+    setLoading(false);
   };
 
   const handleDeleteIncident = async (number) => {
@@ -476,10 +488,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (activeModule === "dashboard" && dashboardData.length === 0) {
-      loadDashboard("incident server error database");
+    if (activeModule === "dashboard") {
+      loadDashboard();
     }
-  }, [activeModule]);
+  }, [activeModule, dashFilter, dashStartDate, dashEndDate]);
 
   const filteredDashboard = dashFilter === "all"
     ? dashboardData
@@ -509,12 +521,24 @@ export default function App() {
   };
 
   const resetForm = () => {
-    setTriageForm({ description: "", impact: "", severity: "", systems: [] });
+    setTriageForm({ 
+      number: `INC${Math.floor(Math.random() * 9000000 + 1000000)}`,
+      caller: user?.user?.name || "System",
+      state: "New",
+      category: "Software",
+      subcategory: "",
+      assignmentGroup: "Service Desk",
+      description: "", 
+      impact: "", 
+      severity: "", 
+      systems: [],
+      resolution: ""
+    });
     setRcaForm({ symptoms: "", logs: "", timeline: "" });
-    setResForm({ summary: "", actions: "", outcome: "Resolved" });
-    setEscForm({ id: "", summary: "", to: "L2 Support", urgency: "High", done: "", ask: "" });
+    setEscForm({ id: "", to: "", cc: "", urgency: "High" });
     setResult(null);
     setError("");
+    setSuggestedResolution(null);
   };
 
   // SLA Timer logic
@@ -627,46 +651,51 @@ export default function App() {
         <div style={{ ...styles.card, maxWidth: 400, width: "100%", textAlign: "center" }} className="login-card">
           <img src="/logo-greenai.svg" alt="GreenAI" style={{ width: 64, height: 64, margin: "0 auto 12px" }} />
           <h2 style={{ fontSize: 22, fontWeight: 800, color: darkMode ? "#34d399" : "#059669", marginBottom: 4 }}>IT Incident Assistant</h2>
-          <p style={{ fontSize: 13, color: darkMode ? "#6ee7b7" : "#065f46", marginBottom: 24 }}>GreenAI Team • {authMode === "login" ? "Đăng nhập" : "Đăng ký"}</p>
+          <p style={{ fontSize: 13, color: darkMode ? "#6ee7b7" : "#065f46", marginBottom: 24 }}>GreenAI Team • {authMode === "login" ? t("login") : t("register")}</p>
 
           {authError && <div style={styles.error}>{authError}</div>}
 
           {authMode === "register" && (
             <div style={{ marginBottom: 12, textAlign: "left" }}>
-              <label style={styles.label}>Họ tên</label>
+              <label style={styles.label}>{t("fullName")}</label>
               <input value={authForm.name} onChange={e => setAuthForm(f => ({ ...f, name: e.target.value }))} placeholder="VD: Nguyen Van A" style={styles.input} />
             </div>
           )}
           <div style={{ marginBottom: 12, textAlign: "left" }}>
-            <label style={styles.label}>Username</label>
-            <input value={authForm.username} onChange={e => setAuthForm(f => ({ ...f, username: e.target.value }))} placeholder="Nhập username" style={styles.input} onKeyDown={e => e.key === "Enter" && handleAuth()} />
+            <label style={styles.label}>{t("username")}</label>
+            <input value={authForm.username} onChange={e => setAuthForm(f => ({ ...f, username: e.target.value }))} placeholder={t("username")} style={styles.input} onKeyDown={e => e.key === "Enter" && handleAuth()} />
           </div>
           <div style={{ marginBottom: 20, textAlign: "left" }}>
-            <label style={styles.label}>Password</label>
-            <input type="password" value={authForm.password} onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))} placeholder="Nhập password" style={styles.input} onKeyDown={e => e.key === "Enter" && handleAuth()} />
+            <label style={styles.label}>{t("password")}</label>
+            <input type="password" value={authForm.password} onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))} placeholder={t("password")} style={styles.input} onKeyDown={e => e.key === "Enter" && handleAuth()} />
           </div>
 
           <button onClick={handleAuth} disabled={authLoading} style={{ ...styles.btn(true, authLoading), width: "100%", marginBottom: 12 }}>
-            {authLoading ? <><span className="spinner" style={{ marginRight: 8 }} /> Đang xử lý...</> : authMode === "login" ? "🔐 Đăng nhập" : "✨ Đăng ký"}
+            {authLoading ? <><span className="spinner" style={{ marginRight: 8 }} /> {authMode === "login" ? t("signingIn") : t("signingUp")} </> : authMode === "login" ? t("signIn") : t("signUp")}
           </button>
 
           <p style={{ fontSize: 12, color: darkMode ? "#6ee7b7" : "#065f46" }}>
-            {authMode === "login" ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
+            {authMode === "login" ? t("dontHaveAccount") + " " : t("alreadyHaveAccount") + " "}
             <span onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(""); }} style={{ fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
-              {authMode === "login" ? "Đăng ký" : "Đăng nhập"}
+              {authMode === "login" ? t("register") : t("login")}
             </span>
           </p>
 
           <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: darkMode ? "#064e3b" : "#ecfdf5", fontSize: 11, color: darkMode ? "#6ee7b7" : "#065f46", textAlign: "left" }}>
-            <strong>Demo accounts:</strong><br />
+            <strong>{t("demoAccounts")}:</strong><br />
             admin / admin123 (Admin)<br />
             analyst / analyst123 (Analyst)<br />
             demo / demo (Viewer)
           </div>
 
-          <button onClick={() => setDarkMode(d => !d)} style={{ ...styles.chip(false), marginTop: 12, fontSize: 11 }}>
-            {darkMode ? "☀️ Light" : "🌙 Dark"}
-          </button>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 12 }}>
+            <button onClick={() => setDarkMode(d => !d)} style={{ ...styles.chip(false), fontSize: 11 }}>
+              {darkMode ? "☀️ Light" : "🌙 Dark"}
+            </button>
+            <button onClick={() => setLang(lang === "vi" ? "en" : "vi")} style={{ ...styles.chip(false), fontSize: 11 }}>
+              🌐 {lang.toUpperCase()}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -685,6 +714,9 @@ export default function App() {
             </div>
           </div>
           <div style={styles.navRight}>
+            <button onClick={() => setLang(lang === "vi" ? "en" : "vi")} style={{ ...styles.chip(true), fontSize: 11, padding: "5px 10px", fontWeight: 700 }}>
+              🌐 {lang.toUpperCase()}
+            </button>
             <button onClick={() => setSettings(s => ({ ...s, provider: s.provider === "openai" ? "ollama" : s.provider === "ollama" ? "azure" : "openai" }))} style={{ ...styles.chip(false), fontSize: 11, padding: "5px 10px" }}>
               {settings.provider === "openai" ? "☁️ OpenAI" : settings.provider === "ollama" ? "🏠 Ollama" : "🔷 Azure"}
             </button>
@@ -735,21 +767,21 @@ export default function App() {
               {/* Left Column */}
               <div style={styles.formGroup}>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>Number</label>
+                  <label style={styles.fieldLabel}>{t("number")}</label>
                   <input value={triageForm.number} readOnly style={{ ...styles.input, background: darkMode ? "#1a1b2e" : "#f1f5f9", fontWeight: 700 }} />
                 </div>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>Caller</label>
+                  <label style={styles.fieldLabel}>{t("caller")}</label>
                   <input value={triageForm.caller} onChange={e => setTriageForm(f => ({...f, caller: e.target.value}))} style={styles.input} />
                 </div>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>Category</label>
+                  <label style={styles.fieldLabel}>{t("category")}</label>
                   <select value={triageForm.category} onChange={e => setTriageForm(f => ({...f, category: e.target.value}))} style={styles.input}>
                     {["Software", "Hardware", "Network", "Database", "Access", "Inquiry"].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>Subcategory</label>
+                  <label style={styles.fieldLabel}>{t("subcategory")}</label>
                   <input value={triageForm.subcategory} onChange={e => setTriageForm(f => ({...f, subcategory: e.target.value}))} placeholder="e.g. Email, VPN, Login..." style={styles.input} />
                 </div>
               </div>
@@ -757,7 +789,7 @@ export default function App() {
               {/* Right Column */}
               <div style={styles.formGroup}>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>Priority</label>
+                  <label style={styles.fieldLabel}>{t("priority")}</label>
                   <select 
                     value={triageForm.severity} 
                     onChange={e => setTriageForm(f => ({...f, severity: e.target.value}))} 
@@ -775,26 +807,26 @@ export default function App() {
                   </select>
                 </div>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>State</label>
+                  <label style={styles.fieldLabel}>{t("state")}</label>
                   <select value={triageForm.state} onChange={e => setTriageForm(f => ({...f, state: e.target.value}))} style={styles.input}>
                     {["New", "In Progress", "On Hold", "Resolved", "Closed"].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>Assignment Group</label>
+                  <label style={styles.fieldLabel}>{t("assignmentGroup")}</label>
                   <select value={triageForm.assignmentGroup} onChange={e => setTriageForm(f => ({...f, assignmentGroup: e.target.value}))} style={styles.input}>
                     {["Service Desk", "L2 Support", "DBA Team", "Network Team", "DevOps Team"].map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
                 <div style={styles.formRow}>
-                  <label style={styles.fieldLabel}>Assigned to</label>
+                  <label style={styles.fieldLabel}>{t("assignedTo")}</label>
                   <input value={user?.user?.name || ""} readOnly style={{ ...styles.input, background: darkMode ? "#1a1b2e" : "#f1f5f9" }} />
                 </div>
               </div>
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>Short description</label>
+              <label style={styles.label}>{t("shortDescription")}</label>
               <input 
                 value={triageForm.impact} 
                 onChange={e => setTriageForm(f => ({ ...f, impact: e.target.value }))} 
@@ -804,7 +836,7 @@ export default function App() {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>Description</label>
+              <label style={styles.label}>{t("triageDesc")}</label>
               <textarea
                 value={triageForm.description}
                 onChange={e => setTriageForm(f => ({ ...f, description: e.target.value }))}
@@ -844,8 +876,7 @@ export default function App() {
                 <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
                   <button 
                     onClick={() => {
-                      setResForm(f => ({ ...f, actions: suggestedResolution }));
-                      setActiveModule("resolution");
+                      setTriageForm(f => ({ ...f, resolution: suggestedResolution }));
                     }} 
                     style={{ ...styles.btn(true), padding: "6px 14px", fontSize: 12 }}
                   >
@@ -856,20 +887,18 @@ export default function App() {
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24 }}>
-              <button onClick={resetForm} style={styles.btn(false)}>Reset</button>
+              <button 
+                onClick={resetForm} 
+                style={{ ...styles.btn(false), border: `1.5px solid ${darkMode ? "#065f46" : "#a7f3d0"}` }}
+              >
+                🔄 {t("resetBtn")}
+              </button>
               <button 
                 onClick={handleSaveKB} 
                 disabled={loading} 
                 style={{ ...styles.btn(false), border: "1px solid #059669", color: "#059669" }}
               >
-                💾 Save to Knowledge (Update History)
-              </button>
-              <button 
-                onClick={handleTriage} 
-                disabled={loading} 
-                style={styles.btn(true, loading)}
-              >
-                {loading ? "Analyzing..." : "✨ AI Analyze Incident"}
+                💾 {t("saveToKB")}
               </button>
             </div>
 
@@ -949,6 +978,18 @@ export default function App() {
                             </strong>
                             <span style={{ fontSize: 11, color: "#9ca3af" }}>Match Score: {Math.round(res.score * 100)}%</span>
                           </div>
+                          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                            {res.metadata.priority && (
+                              <span style={styles.badge(res.metadata.priority === "P1" ? "red" : res.metadata.priority === "P2" ? "orange" : "green")}>
+                                {res.metadata.priority}
+                              </span>
+                            )}
+                            {res.metadata.state && (
+                              <span style={{ ...styles.badge("blue"), background: darkMode ? "#1e3a8a" : "#dbeafe", color: darkMode ? "#93c5fd" : "#1d4ed8" }}>
+                                📍 {res.metadata.state}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{res.metadata.title || "Incident Recovery"}</div>
                           <p style={{ fontSize: 13, color: "#9ca3af", margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                             {res.metadata.content || res.metadata.description}
@@ -984,6 +1025,10 @@ export default function App() {
                       <label style={{ fontSize: 11, color: "#9ca3af", display: "block" }}>Category</label>
                       <span style={{ fontWeight: 700 }}>{selectedAnalysisItem.metadata.category}</span>
                     </div>
+                    <div style={{ background: darkMode ? "#1e293b" : "#f1f5f9", padding: 10, borderRadius: 8 }}>
+                      <label style={{ fontSize: 11, color: "#9ca3af", display: "block" }}>Status</label>
+                      <span style={{ fontWeight: 700, color: "#4f46e5" }}>{selectedAnalysisItem.metadata.state || "Unknown"}</span>
+                    </div>
                   </div>
 
                   <label style={{ fontSize: 12, fontWeight: 700 }}>Description</label>
@@ -1006,116 +1051,59 @@ export default function App() {
           </>
         )}
 
-        {/* RESOLUTION */}
-        {activeModule === "resolution" && (
-          <>
-            <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>📄 Tóm tắt Incident</label>
-              <input value={resForm.summary} onChange={e => setResForm(f => ({ ...f, summary: e.target.value }))} placeholder="VD: Database connection issue on production..." style={styles.input} />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>🔧 Actions đã thực hiện *</label>
-              <textarea value={resForm.actions} onChange={e => setResForm(f => ({ ...f, actions: e.target.value }))} placeholder="VD: Restarted connection pool, increased max connections..." style={styles.textarea} />
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={styles.label}>✅ Kết quả</label>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {["Resolved", "Workaround", "Escalated", "Pending"].map(o => (
-                    <button key={o} onClick={() => setResForm(f => ({ ...f, outcome: o }))} style={styles.chip(resForm.outcome === o)}>{o}</button>
-                  ))}
-                </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: darkMode ? "#6ee7b7" : "#059669", cursor: "pointer" }}>
-                  <input 
-                    type="checkbox" 
-                    checked={resForm.saveToKB} 
-                    onChange={e => setResForm(f => ({ ...f, saveToKB: e.target.checked }))} 
-                  />
-                  Save to Knowledge Base
-                </label>
-              </div>
-            </div>
-          </>
-        )}
-
         {/* ESCALATION */}
         {activeModule === "escalation" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }} className="esc-grid">
-              <div>
-                <label style={styles.label}>🎫 Incident ID</label>
-                <input value={escForm.id} onChange={e => setEscForm(f => ({ ...f, id: e.target.value }))} placeholder="INC0012345" style={styles.input} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label style={styles.label}>🎫 INC Number *</label>
+                  <input value={escForm.id} onChange={e => setEscForm(f => ({ ...f, id: e.target.value }))} placeholder="INC0012345" style={styles.input} />
+                </div>
               </div>
-              <div>
-                <label style={styles.label}>📤 Escalate to</label>
-                <select value={escForm.to} onChange={e => setEscForm(f => ({ ...f, to: e.target.value }))} style={styles.input}>
-                  {ESCALATE_TO.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label style={styles.label}>📤 {t("escalateTo")} *</label>
+                  <input 
+                    type="email"
+                    value={escForm.to} 
+                    onChange={e => setEscForm(f => ({ ...f, to: e.target.value }))} 
+                    placeholder="email@example.com"
+                    style={styles.input} 
+                  />
+                </div>
+                <div>
+                  <label style={styles.label}>✉️ CC</label>
+                  <input 
+                    type="email"
+                    value={escForm.cc} 
+                    onChange={e => setEscForm(f => ({ ...f, cc: e.target.value }))} 
+                    placeholder="cc@example.com"
+                    style={styles.input} 
+                  />
+                </div>
               </div>
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>📝 Summary *</label>
-              <textarea value={escForm.summary} onChange={e => setEscForm(f => ({ ...f, summary: e.target.value }))} placeholder="Mô tả ngắn gọn incident và tình trạng hiện tại..." style={styles.textarea} />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>⚡ Urgency</label>
+            <div style={{ marginBottom: 20, marginTop: 16 }}>
+              <label style={styles.label}>⚡ {t("urgency")}</label>
               <div style={{ display: "flex", gap: 8 }}>
                 {["Critical", "High", "Medium", "Low"].map(u => (
                   <button key={u} onClick={() => setEscForm(f => ({ ...f, urgency: u }))} style={styles.chip(escForm.urgency === u)}>{u}</button>
                 ))}
               </div>
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>✅ Actions đã làm</label>
-              <textarea value={escForm.done} onChange={e => setEscForm(f => ({ ...f, done: e.target.value }))} placeholder="Các bước đã troubleshoot..." style={styles.textarea} rows={2} />
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={styles.label}>🙏 Request</label>
-              <input value={escForm.ask} onChange={e => setEscForm(f => ({ ...f, ask: e.target.value }))} placeholder="VD: Cần support check database performance..." style={styles.input} />
-            </div>
           </>
         )}
 
-        {/* SLA TIMER */}
+        {/* SLA MONITORING DASHBOARD (Optimized) */}
         {activeModule === "sla" && (
-          <>
-            <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>🎯 Priority Level</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                {Object.entries(SLA_TARGETS).map(([key, val]) => (
-                  <button key={key} onClick={() => setSlaForm(f => ({ ...f, priority: key }))} style={styles.chip(slaForm.priority === key)}>
-                    {key} - {val.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={styles.label}>🕐 Thời gian bắt đầu Incident</label>
-              <input type="datetime-local" value={slaForm.startTime} onChange={e => setSlaForm(f => ({ ...f, startTime: e.target.value }))} style={styles.input} />
-            </div>
-            {slaRemaining !== null && (
-              <div style={{ textAlign: "center", padding: 24, background: darkMode ? "#1a1b2e" : "#f9fafb", borderRadius: 12, marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>
-                  {slaForm.priority} SLA Countdown
-                </div>
-                <div className="sla-countdown" style={{ fontSize: 48, fontWeight: 800, color: getSlaColor(slaRemaining, slaTotalMs), fontVariantNumeric: "tabular-nums" }}>
-                  {formatRemaining(slaRemaining)}
-                </div>
-                <div style={{ marginTop: 12, height: 8, background: darkMode ? "#3a3b5c" : "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
-                  <div style={{
-                    width: `${Math.max(0, Math.min(100, (slaRemaining / slaTotalMs) * 100))}%`,
-                    height: "100%",
-                    background: getSlaColor(slaRemaining, slaTotalMs),
-                    borderRadius: 4,
-                    transition: "width 1s linear",
-                  }} />
-                </div>
-                <div style={{ marginTop: 8, fontSize: 12, color: "#9ca3af" }}>
-                  Target: {SLA_TARGETS[slaForm.priority].hours} giờ từ khi bắt đầu
-                </div>
-              </div>
-            )}
-          </>
+          <SlaMonitor 
+            darkMode={darkMode} 
+            styles={styles} 
+            apiBase={API_BASE} 
+            slaTargets={SLA_TARGETS}
+            lang={lang}
+          />
         )}
 
         {/* DASHBOARD */}
@@ -1123,7 +1111,7 @@ export default function App() {
           <>
             {/* Search */}
             <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>🔍 Tìm kiếm Incident (semantic search via Pinecone)</label>
+              <label style={styles.label}>🔍 {t("searchIncidents")}</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   value={dashSearch}
@@ -1233,16 +1221,54 @@ export default function App() {
               </div>
             )}
 
-            {/* Filter */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {["all", "P1", "P2", "P3", "P4"].map(f => (
-                <button key={f} onClick={() => setDashFilter(f)} style={styles.chip(dashFilter === f)}>
-                  {f === "all" ? "All" : f}
+            {/* Filter Section */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 20, padding: 16, background: darkMode ? "#1a1b2e" : "#f8fafc", borderRadius: 12, border: `1px solid ${darkMode ? "#3a3b5c" : "#e2e8f0"}` }}>
+              {/* Priority */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af" }}>Độ ưu tiên</label>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {["all", "P1", "P2", "P3", "P4"].map(f => (
+                    <button key={f} onClick={() => setDashFilter(f)} style={{ ...styles.chip(dashFilter === f), padding: "4px 10px" }}>
+                      {f === "all" ? "All" : f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Subcategory */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af" }}>Danh mục con</label>
+                <input 
+                  value={dashSubFilter} 
+                  onChange={e => setDashSubFilter(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && loadDashboard(dashSearch)}
+                  onBlur={() => loadDashboard(dashSearch)}
+                  placeholder="Nhập tên danh mục..."
+                  style={{ ...styles.input, padding: "8px", fontSize: 12, width: 140 }}
+                />
+              </div>
+
+              {/* Date Range */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af" }}>Khoảng thời gian</label>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input type="date" value={dashStartDate} onChange={e => setDashStartDate(e.target.value)} style={{ ...styles.input, padding: "4px 8px", fontSize: 11, width: 110 }} />
+                  <span style={{ fontSize: 11 }}>→</span>
+                  <input type="date" value={dashEndDate} onChange={e => setDashEndDate(e.target.value)} style={{ ...styles.input, padding: "4px 8px", fontSize: 11, width: 110 }} />
+                </div>
+              </div>
+
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "flex-end" }}>
+                <button onClick={() => { setDashFilter("all"); setDashSubFilter(""); setDashStartDate(""); setDashEndDate(""); setDashSearch(""); setTimeout(() => loadDashboard(""), 50); }} style={{ ...styles.chip(false), padding: "6px 12px" }}>
+                  🧹 Clear
                 </button>
-              ))}
-              <button onClick={() => loadDashboard(dashSearch || "incident")} style={{ ...styles.chip(false), marginLeft: "auto" }}>
-                🔄 Refresh
-              </button>
+                <button 
+                  onClick={handleCleanup} 
+                  style={{ ...styles.btn(false), background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", padding: "6px 12px", fontSize: 12 }}
+                >
+                  🗑️ Cleanup INC
+                </button>
+              </div>
             </div>
 
             {/* Incident List */}
@@ -1276,6 +1302,9 @@ export default function App() {
                             {inc.metadata.category}
                           </span>
                         )}
+                        <span style={{ ...styles.badge("blue"), background: darkMode ? "#1e3a8a" : "#dbeafe", color: darkMode ? "#93c5fd" : "#1d4ed8" }}>
+                          📍 {inc.metadata?.state || "Unknown"}
+                        </span>
                       </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <span style={{ fontSize: 11, color: "#9ca3af" }}>
@@ -1325,35 +1354,32 @@ export default function App() {
         {error && <div style={styles.error}>{error}</div>}
 
         {/* Buttons */}
-        {activeModule !== "dashboard" && activeModule !== "chatbot" && <div style={{ display: "flex", gap: 10 }} className="btn-group">
-          {activeModule === "sla" ? (
-            <>
-              <button onClick={startSlaTimer} style={styles.btn(true, false)}>⏱️ Start Timer</button>
-              {slaRemaining !== null && <button onClick={stopSlaTimer} style={styles.btn(false, false)}>⏹️ Stop</button>}
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => {
-                  if (activeModule === "triage") handleTriage();
-                  else if (activeModule === "rca") handleRCA();
-                  else if (activeModule === "resolution") handleResolution();
-                  else handleEscalation();
-                }}
-                disabled={loading}
-                style={{ ...styles.btn(true, loading), padding: "14px 28px", fontSize: 15, borderRadius: 12, display: "flex", alignItems: "center", gap: 8 }}
+        {activeModule !== "dashboard" && activeModule !== "chatbot" && activeModule !== "sla" && activeModule !== "triage" && (
+          <div style={{ display: "flex", gap: 10 }} className="btn-group">
+            <button
+              onClick={() => {
+                if (activeModule === "triage") handleTriage();
+                else if (activeModule === "rca") handleRCA();
+                else handleEscalation();
+              }}
+              disabled={loading}
+              style={{ ...styles.btn(true, loading), padding: "14px 28px", fontSize: 15, borderRadius: 12, display: "flex", alignItems: "center", gap: 8 }}
+            >
+              {loading ? <><span className="spinner" /> Analyzing...</> : <><span style={{ fontSize: 18 }}>✨</span> {activeModule === "triage" ? "Analyze Incident" : activeModule === "rca" ? "Find Root Cause" : "Draft Email"}</>}
+            </button>
+            
+            {activeModule === "triage" && (
+              <button 
+                onClick={handleWorkflow} 
+                disabled={loading} 
+                style={{ ...styles.btn(false, loading), background: loading ? undefined : darkMode ? "#064e3b" : "#ecfdf5", color: darkMode ? "#34d399" : "#059669", border: `1.5px solid ${darkMode ? "#065f46" : "#a7f3d0"}`, display: "flex", alignItems: "center", gap: 8 }}
               >
-                {loading ? <><span className="spinner" /> Analyzing...</> : <><span style={{ fontSize: 18 }}>✨</span> {activeModule === "triage" ? "Analyze Incident" : activeModule === "rca" ? "Find Root Cause" : activeModule === "resolution" ? "Generate Summary" : "Draft Email"}</>}
+                {loading ? <><span className="spinner" style={{ borderColor: "rgba(5,150,105,0.3)", borderTopColor: "#059669" }} /> Processing...</> : <><span style={{ fontSize: 16 }}>🔄</span> Full Workflow</>}
               </button>
-              {activeModule === "triage" && (
-                <button onClick={handleWorkflow} disabled={loading} style={{ ...styles.btn(false, loading), background: loading ? undefined : darkMode ? "#064e3b" : "#ecfdf5", color: darkMode ? "#34d399" : "#059669", border: `1.5px solid ${darkMode ? "#065f46" : "#a7f3d0"}`, display: "flex", alignItems: "center", gap: 8 }}>
-                  {loading ? <><span className="spinner" style={{ borderColor: "rgba(5,150,105,0.3)", borderTopColor: "#059669" }} /> Processing...</> : <><span style={{ fontSize: 16 }}>🔄</span> Full Workflow</>}
-                </button>
-              )}
-              <button onClick={resetForm} style={styles.btn(false, false)}>🔄 Reset</button>
-            </>
-          )}
-        </div>}
+            )}
+            <button onClick={resetForm} style={styles.btn(false, false)}>🔄 Reset</button>
+          </div>
+        )}
       </div>
 
       {/* Loading Skeleton */}
@@ -1379,20 +1405,20 @@ export default function App() {
         <div style={styles.result} className="fade-in">
           <div style={styles.resultHeader} className="result-header">
             <span style={{ color: "#fff", fontWeight: 600 }}>
-              {result.type === "workflow" ? "🔄 Full Workflow Result" : activeModule === "triage" ? "🎯 Triage Result" : activeModule === "rca" ? "🔍 Root Cause Analysis" : activeModule === "resolution" ? "✅ Resolution Summary" : "📧 Email Draft"}
+              {result.type === "workflow" ? `🔄 ${t("workflowBtn")}` : activeModule === "triage" ? `🎯 ${t("triageBtn")}` : activeModule === "rca" ? `🔍 ${t("rcaDesc")}` : `📧 ${t("escalation")}`}
             </span>
             <div style={{ display: "flex", gap: 8 }}>
-              {activeModule === "resolution" && (
-                <button onClick={exportPDF} style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  📄 Export PDF
+              {result.type === "escalation_draft" && (
+                <button onClick={handleSendEmail} style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: "#ef4444", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  ✉️ Send Email
                 </button>
               )}
               <button onClick={copyResult} style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: copied ? "#10b981" : "rgba(255,255,255,0.2)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                {copied ? "✓ Copied!" : "📋 Copy"}
+                {copied ? `✓ ${t("copied")}` : `📋 ${t("copy")}`}
               </button>
             </div>
           </div>
-          <div id={activeModule === "resolution" ? "resolution-result" : undefined} style={styles.resultBody}>
+          <div style={styles.resultBody}>
             {result.type === "workflow" ? (
               <div style={{ display: "grid", gap: 20 }}>
                 <div>
@@ -1412,7 +1438,9 @@ export default function App() {
                   </div>
                 )}
               </div>
-            ) : result.type === "json" && activeModule === "triage" ? renderTriageResult(result.data) : result.data}
+            ) : result.type === "json" && activeModule === "triage" ? renderTriageResult(result.data) : result.type === "escalation_draft" ? (
+               <div style={{ whiteSpace: "pre-wrap" }}>{result.data}</div>
+            ) : result.data}
           </div>
           
           {/* AI Ethics Disclaimer */}
@@ -1435,11 +1463,14 @@ export default function App() {
               <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
                 <span>Score: {Math.round((inc.score || 0) * 100)}%</span>
                 {inc.metadata?.priority && (
-                  <span style={styles.badge(inc.metadata.priority === "P1" ? "red" : inc.metadata.priority === "P2" ? "orange" : "green")}>
+                  <span style={styles.badge(inc.metadata.priority === "P1" ? "red" : inc.metadata.priority === "P2" ? "orange" : inc.metadata.priority === "P3" ? "yellow" : "green")}>
                     {inc.metadata.priority}
                   </span>
                 )}
-                {inc.metadata?.category && <span>• {inc.metadata.category}</span>}
+                {inc.metadata?.category && <span style={{ color: "#9ca3af" }}>• {inc.metadata.category}</span>}
+                <span style={{ ...styles.badge("blue"), fontSize: 10, padding: "2px 6px", background: darkMode ? "#1e3a8a" : "#dbeafe", color: darkMode ? "#93c5fd" : "#1d4ed8" }}>
+                  📍 {inc.metadata?.state || "Unknown"}
+                </span>
               </div>
             </div>
           ))}
@@ -1448,7 +1479,7 @@ export default function App() {
 
       {/* Footer */}
       <p style={{ textAlign: "center", color: darkMode ? "#4b5563" : "#d1d5db", fontSize: 11, marginTop: 32, paddingBottom: 20 }}>
-        IT Incident Assistant • GreenAI Team • FSoft Academy
+        UnifiedITSM Assistant • GreenAI Team • FSoft Academy
       </p>
       </div>
     </div>

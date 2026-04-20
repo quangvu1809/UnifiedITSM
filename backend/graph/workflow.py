@@ -45,15 +45,6 @@ def triage_node(state: IncidentState) -> dict:
         "impact": impact or "Chưa rõ",
     })
 
-    # Store in Pinecone for future RAG
-    upsert_incident(description, {
-        "description": description,
-        "impact": impact,
-        "priority": triage_result.get("priority", ""),
-        "category": triage_result.get("category", ""),
-        "suggested_team": triage_result.get("suggested_team", ""),
-    })
-
     return {
         "triage_result": triage_result,
         "similar_incidents": similar,

@@ -1,13 +1,24 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
-const SUGGESTIONS = [
-  "I can't connect to VPN",
-  "What's the status of TKT-001?",
-  "Outlook keeps crashing",
-  "WiFi keeps dropping",
-  "How do I reset my password?",
-  "Can't access shared drive",
-];
+const SUGGESTIONS_MAP = {
+  en: [
+    "I can't connect to VPN",
+    "What's the status of TKT-001?",
+    "Outlook keeps crashing",
+    "WiFi keeps dropping",
+    "How do I reset my password?",
+    "Can't access shared drive",
+  ],
+  vi: [
+    "Tôi không kết nối được VPN",
+    "Trạng thái ticket TKT-001?",
+    "Outlook liên tục bị treo",
+    "WiFi chập chờn liên tục",
+    "Làm sao đổi password?",
+    "Không truy cập được ổ đĩa chung",
+  ]
+};
 
 const statusColors = { 
   Open: ["#FCEBEB", "#A32D2D"], 
@@ -78,6 +89,7 @@ function TicketChip({ ticket, dark }) {
 }
 
 function AudioPlayer({ audioBase64, lang, dark }) {
+  const { t } = useLanguage();
   if (!audioBase64) return null;
   const audioUrl = `data:audio/wav;base64,${audioBase64}`;
   const langLabel = lang === "vie" ? "Vietnamese" : "English";
@@ -85,7 +97,7 @@ function AudioPlayer({ audioBase64, lang, dark }) {
     <div style={{ marginTop: 8 }}>
       <audio controls src={audioUrl} style={{ height: 32, width: "100%", maxWidth: 280 }} />
       <div style={{ fontSize: 10, color: dark ? "#34d399" : "#059669", marginTop: 4, fontWeight: 500 }}>
-        🔊 AI Voice: {langLabel}
+        🔊 {t("voiceAi")}: {langLabel}
       </div>
     </div>
   );
@@ -122,13 +134,16 @@ function Bubble({ msg, dark }) {
 }
 
 export default function ChatAssistant({ dark, apiBase }) {
+  const { lang: appLang, t } = useLanguage();
+  const SUGGESTIONS = SUGGESTIONS_MAP[appLang] || SUGGESTIONS_MAP.en;
+
   // Session management
   const [sessions, setSessions] = useState(() => {
     try {
       const saved = localStorage.getItem("chat_sessions");
       if (saved) return JSON.parse(saved);
     } catch (e) { console.error("Failed to load sessions", e); }
-    return [{ id: "default", title: "New Conversation", messages: [], history: [], createdAt: Date.now() }];
+    return [{ id: "default", title: t("newConversation"), messages: [], history: [], createdAt: Date.now() }];
   });
   
   const [activeSessionId, setActiveSessionId] = useState(() => {
@@ -141,7 +156,6 @@ export default function ChatAssistant({ dark, apiBase }) {
   const [loading, setLoading] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(0);
   const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [ttsLang, setTtsLang] = useState("auto");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const bottomRef = useRef(null);
 
@@ -158,7 +172,7 @@ export default function ChatAssistant({ dark, apiBase }) {
 
   const createNewSession = () => {
     const id = Date.now().toString();
-    const newSess = { id, title: "New Conversation", messages: [], history: [], createdAt: Date.now() };
+    const newSess = { id, title: t("newConversation"), messages: [], history: [], createdAt: Date.now() };
     setSessions(prev => [newSess, ...prev]);
     setActiveSessionId(id);
   };
@@ -215,7 +229,7 @@ export default function ChatAssistant({ dark, apiBase }) {
         body: JSON.stringify({ 
           history: nextHistory, 
           tts: ttsEnabled, 
-          ttsLang: ttsLang === "auto" ? null : ttsLang 
+          ttsLang: appLang === "vi" ? "vie" : "eng"
         }),
       });
       
@@ -266,7 +280,7 @@ export default function ChatAssistant({ dark, apiBase }) {
                 cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 
               }}
             >
-              <span>+</span> New Transaction
+              <span>+</span> {t("newTransaction")}
             </button>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
@@ -319,7 +333,7 @@ export default function ChatAssistant({ dark, apiBase }) {
             <div style={{ width: 34, height: 34, borderRadius: "50%", background: dark ? "#064e3b" : "#ecfdf5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🤖</div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: dark ? "#34d399" : "#059669" }}>{activeSession.title}</div>
-              <div style={{ fontSize: 10, color: "#9ca3af" }}>Multi-session Transaction Support</div>
+              <div style={{ fontSize: 10, color: "#9ca3af" }}>{t("multiSession")}</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -327,7 +341,7 @@ export default function ChatAssistant({ dark, apiBase }) {
               onClick={() => setTtsEnabled(t => !t)} 
               style={{ fontSize: 11, fontWeight: 600, padding: "5px 10px", borderRadius: 8, border: `1px solid ${ttsEnabled ? (dark ? "#059669" : "#059669") : (dark ? "#333" : "#ddd")}`, background: ttsEnabled ? (dark ? "#064e3b" : "#ecfdf5") : "transparent", color: ttsEnabled ? (dark ? "#34d399" : "#059669") : "#999", cursor: "pointer" }}
             >
-              {ttsEnabled ? "🔊 Voice ON" : "🔇 Voice OFF"}
+              {ttsEnabled ? t("voiceOn") : t("voiceOff")}
             </button>
           </div>
         </div>
@@ -337,8 +351,8 @@ export default function ChatAssistant({ dark, apiBase }) {
           {messages.length === 0 && (
             <div style={{ textAlign: "center", paddingTop: 40, paddingBottom: 20 }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🧤</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: dark ? "#34d399" : "#059669", marginBottom: 4 }}>How can I help you today?</div>
-              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 24 }}>Ask me about IT troubleshooting, ticket status, or create a new request.</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: dark ? "#34d399" : "#059669", marginBottom: 4 }}>{t("howCanIHelp")}</div>
+              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 24 }}>{t("chatbotDesc")}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 500, margin: "0 auto" }}>
                 {SUGGESTIONS.map((s, i) => (
                   <button key={i} onClick={() => send(s)} style={{ fontSize: 12, padding: "8px 16px", borderRadius: 20, color: dark ? "#34d399" : "#059669", background: dark ? "#064e3b" : "#ecfdf5", border: `1px solid ${dark ? "#059669" : "#a7f3d0"}`, cursor: "pointer", transition: "all 0.2s" }} onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"} onMouseOut={(e) => e.target.style.transform = "translateY(0)"}>
@@ -352,10 +366,10 @@ export default function ChatAssistant({ dark, apiBase }) {
           {loading && (
             <div style={{ padding: "16px", background: dark ? "#064e3b" : "#f0fdf4", borderRadius: "16px 16px 16px 4px", border: `1px solid ${dark ? "#059669" : "#d1fae5"}`, maxWidth: 300, marginBottom: 16 }}>
               {[
-                { step: 1, label: "Searching KB..." },
-                { step: 2, label: "Reasoning..." },
-                { step: 3, label: "Drafting..." },
-                { step: 4, label: "Synthesizing..." },
+                { step: 1, label: t("thinkingSteps.step1") },
+                { step: 2, label: t("thinkingSteps.step2") },
+                { step: 3, label: t("thinkingSteps.step3") },
+                { step: 4, label: t("thinkingSteps.step4") },
               ].map(s => (
                 <div key={s.step} style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 0", opacity: thinkingStep >= s.step ? 1 : 0.3 }}>
                   <span style={{ fontSize: 12 }}>{thinkingStep === s.step ? "⏳" : thinkingStep > s.step ? "✅" : "○"}</span>
@@ -373,7 +387,7 @@ export default function ChatAssistant({ dark, apiBase }) {
             value={input} 
             onChange={e => setInput(e.target.value)} 
             onKeyDown={handleKey} 
-            placeholder="Ask anything about ITSM..." 
+            placeholder={t("chatPlaceholder")} 
             style={{ flex: 1, borderRadius: 12, padding: "12px 16px", fontSize: 14, border: `1.5px solid ${dark ? "#065f46" : "#a7f3d0"}`, outline: "none", background: dark ? "#022c22" : "#fff", color: dark ? "#e5e7eb" : "#1f2937" }} 
           />
           <button 
@@ -381,7 +395,7 @@ export default function ChatAssistant({ dark, apiBase }) {
             disabled={loading || !input.trim()} 
             style={{ padding: "12px 20px", borderRadius: 12, background: input.trim() && !loading ? "#059669" : "#ccc", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}
           >
-            Send
+            {t("send")}
           </button>
         </div>
       </div>

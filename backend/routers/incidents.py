@@ -50,7 +50,9 @@ async def resolve_incident(req: ResolveRequest):
                 "content": f"Description: {req.description}\nResolution: {req.resolution}",
                 "resolution": req.resolution,
                 "category": req.category,
+                "subcategory": req.subcategory,
                 "priority": req.priority,
+                "state": req.state,
                 "type": "kb_entry",
                 "history": json.dumps(history)
             },
@@ -68,35 +70,76 @@ async def store_incident(req: IncidentStore):
         raise HTTPException(400, "Description required")
 
     incident_id = upsert_incident(req.description, {
+        "number": req.number,
+        "caller": req.caller,
         "description": req.description,
         "impact": req.impact,
         "priority": req.priority,
         "category": req.category,
+        "subcategory": req.subcategory,
+        "state": req.state,
         "suggested_team": req.suggested_team,
-    })
+    }, vector_id=req.number)
 
     return {"id": incident_id, "status": "stored"}
 
 
 @router.get("/api/incidents/similar")
-async def find_similar(q: str = Query(..., min_length=5), k: int = Query(5, ge=1, le=20)):
-    """Search Pinecone for similar items across both Incidents and KB namespaces."""
+async def find_similar(
+    q: str = Query(..., min_length=1), 
+    k: int = Query(5, ge=1, le=20),
+    priority: str = Query(None),
+    subcategory: str = Query(None),
+    state: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    kb_only: bool = Query(False)
+):
+    """Search Pinecone for similar items with optional metadata filtering."""
     from config import get_settings
     settings = get_settings()
     
-    # Query Incidents namespace
-    inc_results = query_similar(q, top_k=k, namespace=settings.INC_NAMESPACE)
+    # 1. Detect if query is an INC number for exact match logic
+    query_upper = q.upper().strip()
+    if query_upper.startswith("INC") or query_upper.startswith("KB"):
+        from embeddings.service import get_by_id
+        results = get_by_id(query_upper, namespace=settings.INC_NAMESPACE)
+        if not results:
+            results = get_by_id(query_upper, namespace=settings.KB_NAMESPACE)
+        if results:
+            # Format results to match search output
+            formatted = [{"id": r["id"], "score": 1.0, "metadata": r["metadata"]} for r in results]
+            return {"incidents": formatted, "count": len(formatted)}
+
+    filters = {}
+    if priority and priority != "all":
+        filters["priority"] = {"$eq": priority}
+    if subcategory and subcategory != "all":
+        filters["subcategory"] = {"$eq": subcategory}
     
-    # Query Knowledge Base namespace
-    kb_results = query_similar(q, top_k=k, namespace=settings.KB_NAMESPACE)
+    if state and state != "all":
+        filters["state"] = {"$eq": state}
     
-    # Merge and sort by score
-    combined = inc_results + kb_results
+    if start_date or end_date:
+        time_filter = {}
+        if start_date:
+            time_filter["$gte"] = start_date
+        if end_date:
+            time_filter["$lte"] = end_date
+        filters["timestamp"] = time_filter
+
+    # 3. Query Namespaces
+    kb_results = query_similar(q, top_k=k, namespace=settings.KB_NAMESPACE, metadata=filters)
+    
+    if kb_only:
+        combined = kb_results
+    else:
+        inc_results = query_similar(q, top_k=k, namespace=settings.INC_NAMESPACE, metadata=filters)
+        combined = inc_results + kb_results
+        
     combined.sort(key=lambda x: x.get("score", 0), reverse=True)
     
-    # Return top K from the combined list
     final_results = combined[:k]
-    
     return {"incidents": final_results, "count": len(final_results)}
 
 
@@ -138,6 +181,27 @@ async def search_incidents(q: str = Query(..., min_length=2)):
         # Semantic search in KB namespace
         results = query_similar(q, top_k=5, namespace=settings.KB_NAMESPACE)
         return {"status": "success", "type": "semantic", "results": results}
+@router.post("/api/incidents/cleanup")
+async def cleanup_incidents():
+    """Wipe all temporary incidents and KB articles for a fresh start."""
+    from embeddings.service import delete_namespace
+    from config import get_settings
+    settings = get_settings()
+    
+    # Attempt to clear both namespaces
+    res_inc = delete_namespace(settings.INC_NAMESPACE)
+    res_kb = delete_namespace(settings.KB_NAMESPACE)
+    
+    return {
+        "status": "success", 
+        "message": "Cleanup attempt completed.",
+        "details": {
+            "incidents": "Cleared" if res_inc else "Already empty or error",
+            "kb": "Cleared" if res_kb else "Already empty or error"
+        }
+    }
+
+
 @router.delete("/api/incidents/{number}")
 async def delete_incident(number: str):
     """Delete an incident from the Knowledge Base."""

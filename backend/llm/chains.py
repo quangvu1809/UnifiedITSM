@@ -88,17 +88,23 @@ Trả về Resolution Note ngắn gọn, professional:
 def get_escalation_chain(provider: str = "openai"):
     llm = get_llm(provider)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Soạn email escalation chuyên nghiệp."),
+        ("system", "Bạn là một IT Service Management expert. Hãy soạn một email escalation chuyên nghiệp."),
         ("human", """**Incident ID:** {id}
-**Summary:** {summary}
 **Escalate to:** {to}
+**CC:** {cc}
 **Urgency:** {urgency}
-**Actions done:** {done}
-**Request:** {ask}
 
-Trả về email format:
-Subject: [Tiêu đề]
+**Incident Details & Status:**
+{incident_details}
 
-[Nội dung email với greeting, context, request, closing]"""),
+Dựa trên thông tin chi tiết của Incident ở trên, hãy soạn một email escalation gửi tới {to} (cc {cc} nếu có):
+- Giải thích rõ ràng tình trạng hiện tại của Incident.
+- Nêu rõ lý do cần escalate với mức độ {urgency}.
+- Yêu cầu hỗ trợ hoặc chỉ đạo action tiếp theo.
+
+BẮT BUỘC TRẢ VỀ THEO FORMAT SAU (dòng đầu tiên phải có chữ Subject:):
+Subject: [Tiêu đề email ở đây]
+
+[Nội dung email chi tiết...]"""),
     ])
     return prompt | llm | StrOutputParser()

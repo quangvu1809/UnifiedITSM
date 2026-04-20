@@ -29,15 +29,6 @@ async def retrieve_and_triage(description: str, impact: str, provider: str = "op
         "impact": impact or "Chưa rõ",
     })
 
-    # Step 4: Store this incident in Pinecone for future RAG retrieval
-    upsert_incident(description, {
-        "description": description,
-        "impact": impact,
-        "priority": triage_result.get("priority", ""),
-        "category": triage_result.get("category", ""),
-        "suggested_team": triage_result.get("suggested_team", ""),
-    })
-
     return {
         "triage": triage_result,
         "similar_incidents": similar,
