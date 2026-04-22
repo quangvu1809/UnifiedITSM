@@ -1,297 +1,157 @@
-# IT Incident Assistant - Architecture & Knowledge Map
+# 🏛️ UnifiedITSM - System Architecture & Technical Deep-Dive
 
-## 1. Project Structure
+### 🚀 Developed by **GreenAI Team**
+
+This document provides a comprehensive technical overview of the **UnifiedITSM** platform, detailing its architectural components, AI orchestration patterns, and data flow mechanisms.
+
+---
+
+## 1. Project Ecosystem Structure
 
 ```
-it-incident-assistant/
-├── src/                              # FRONTEND (React)
-│   ├── App.jsx                       # Main UI component (~700 lines)
-│   ├── main.jsx                      # React entry point
-│   ├── index.css                     # Global CSS + dark mode
-│   └── App.test.jsx                  # Frontend tests
+unified-itsm/
+├── src/                              # FRONTEND (React 18 + Vite)
+│   ├── App.jsx                       # Main Application Shell
+│   ├── components/                   # UI Components (Chat, SLA, Dashboard)
+│   ├── context/                      # State Management (Language, Theme)
+│   ├── index.css                     # Global Styles (Dark Mode, Premium UI)
+│   └── main.jsx                      # React Entry Point
 │
 ├── backend/                          # BACKEND (Python FastAPI)
-│   ├── main.py                       # FastAPI app + CORS + routers
-│   ├── config.py                     # Settings (pydantic-settings)
-│   ├── requirements.txt              # Python dependencies
-│   ├── .env                          # Backend secrets (KHÔNG commit!)
+│   ├── main.py                       # FastAPI Application & Router Mapping
+│   ├── config.py                     # Environment Configuration (Pydantic)
+│   ├── Procfile                      # Deployment Configuration
 │   │
-│   ├── llm/                          # LLM Integration
-│   │   ├── providers.py              # ChatOpenAI / AzureChatOpenAI / ChatOllama
-│   │   └── chains.py                 # LangChain LCEL chains (4 modules)
+│   ├── llm/                          # AI Providers & Chains
+│   │   ├── providers.py              # OpenAI / Azure / Ollama Multi-provider logic
+│   │   └── chains.py                 # LangChain LCEL Implementation
 │   │
-│   ├── embeddings/                   # HuggingFace + Pinecone
-│   │   └── service.py                # sentence-transformers + vector DB ops
+│   ├── embeddings/                   # Vectorization Layer
+│   │   └── service.py                # HuggingFace (MiniLM-L6-v2) Integration
 │   │
-│   ├── rag/                          # RAG Pipeline
-│   │   └── retriever.py              # embed → Pinecone search → augment prompt
+│   ├── rag/                          # RAG Strategy
+│   │   └── retriever.py              # Semantic Search + Context Augmentation
 │   │
-│   ├── graph/                        # LangGraph
-│   │   └── workflow.py               # StateGraph: classify → triage → RCA → resolution
+│   ├── graph/                        # AI Agent Workflow
+│   │   └── workflow.py               # LangGraph StateGraph Orchestration
 │   │
-│   ├── routers/                      # API Endpoints
-│   │   ├── triage.py                 # POST /api/triage (RAG-augmented)
-│   │   ├── rca.py                    # POST /api/rca
-│   │   ├── resolution.py             # POST /api/resolution
-│   │   ├── escalation.py             # POST /api/escalation
-│   │   ├── workflow.py               # POST /api/workflow (LangGraph)
-│   │   └── incidents.py              # Pinecone CRUD + similarity search
+│   ├── routers/                      # REST API Endpoints
+│   │   ├── auth.py                   # User Authentication & Session Management
+│   │   ├── chatbot.py                # Intelligent Chat Assistant (Agentic)
+│   │   ├── triage.py                 # RAG-Augmented Incident Classification
+│   │   ├── rca.py                    # Root Cause Analysis Logic
+│   │   ├── resolution.py             # Resolution Template Generation
+│   │   ├── escalation.py             # AI Email Drafting for Escalation
+│   │   ├── workflow.py               # End-to-End Workflow Execution
+│   │   └── incidents.py              # Pinecone CRUD & Knowledge Base Operations
 │   │
-│   └── models/
-│       └── schemas.py                # Pydantic request/response models
+│   ├── models/                       # Data Contracts
+│   │   └── schemas.py                # Pydantic Request/Response Models
+│   └── services/                     # Shared Business Logic
 │
-├── api/chat.js                       # Legacy Vercel serverless (backup)
-├── vercel.json                       # Frontend deploy config
-└── vite.config.js                    # Vite + dev proxy → Python backend
+├── public/                           # Static Assets (Logos, Icons)
+├── vercel.json                       # Frontend Deployment Settings
+└── vite.config.js                    # Vite Proxy & Build Settings
 ```
 
-## 2. Course Technology Mapping
+---
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  COURSE REQUIREMENTS                         │
-│                                                              │
-│  ┌──────────┐   File: backend/llm/providers.py               │
-│  │ OpenAI   │   ChatOpenAI(base_url=stu-platform)            │
-│  │ API      │   → Primary LLM for all AI modules             │
-│  └──────────┘                                                │
-│                                                              │
-│  ┌──────────┐   File: backend/llm/providers.py               │
-│  │ Llama3   │   ChatOllama(model="llama3")                   │
-│  │ (Ollama) │   → Sensitive data routing (PII detected)      │
-│  └──────────┘                                                │
-│                                                              │
-│  ┌──────────┐   File: backend/llm/providers.py               │
-│  │ Azure AI │   AzureChatOpenAI(azure_endpoint=...)          │
-│  │          │   → Alternative cloud provider                  │
-│  └──────────┘                                                │
-│                                                              │
-│  ┌──────────┐   File: backend/llm/chains.py                  │
-│  │ LangChain│   PromptTemplate | LLM | OutputParser (LCEL)   │
-│  │          │   → 4 chains: triage, rca, resolution, escal.  │
-│  └──────────┘                                                │
-│                                                              │
-│  ┌──────────┐   File: backend/embeddings/service.py          │
-│  │HuggingFace   SentenceTransformer("all-MiniLM-L6-v2")     │
-│  │Embeddings│   → Encode incidents to 384-dim vectors        │
-│  └──────────┘                                                │
-│                                                              │
-│  ┌──────────┐   File: backend/embeddings/service.py          │
-│  │ Pinecone │   Index: "it-incidents", 384 dims, cosine      │
-│  │          │   → Store & search past incident vectors        │
-│  └──────────┘                                                │
-│                                                              │
-│  ┌──────────┐   File: backend/rag/retriever.py               │
-│  │   RAG    │   embed query → Pinecone top-k → augment prompt│
-│  │          │   → Triage uses past incidents as context       │
-│  └──────────┘                                                │
-│                                                              │
-│  ┌──────────┐   File: backend/graph/workflow.py              │
-│  │ LangGraph│   StateGraph: classify → triage → RCA → resol. │
-│  │          │   → Full incident workflow orchestration        │
-│  └──────────┘                                                │
-└─────────────────────────────────────────────────────────────┘
+## 2. Technical Technology Mapping
+
+The system is built on a "Best-of-Breed" stack to ensure scalability, intelligence, and a premium user experience.
+
+| Requirement | Technology Choice | Implementation Detail |
+| :--- | :--- | :--- |
+| **User Interface** | **React 18 + Vite** | Single Page Application (SPA) with real-time state synchronization. |
+| **Logic Layer** | **FastAPI** | Asynchronous Python framework for high-performance AI processing. |
+| **Intelligence** | **OpenAI GPT-4o** | Primary LLM for reasoning, analysis, and content generation. |
+| **AI Orchestration** | **LangChain & LangGraph** | Managing complex agentic states and LCEL chain pipelines. |
+| **Vector Memory** | **Pinecone** | High-performance Vector DB for semantic retrieval (RAG). |
+| **Text Embedding** | **HuggingFace** | `all-MiniLM-L6-v2` for 384-dimensional dense vector generation. |
+| **Local Fallback** | **Ollama (Llama 3)** | On-premise execution option for sensitive PII data. |
+| **Voice Interaction** | **MMS-TTS** | Facebook's Massively Multilingual Speech for audio feedback. |
+
+---
+
+## 3. High-Level System Architecture
+
+```mermaid
+graph TD
+    User((User)) <--> Frontend[React Frontend - Vercel]
+    Frontend <--> API[FastAPI Backend - Railway]
+    
+    subgraph "AI Orchestration Layer"
+        API <--> LG[LangGraph Agent]
+        LG <--> LC[LangChain LCEL Chains]
+    end
+    
+    subgraph "Knowledge Engine"
+        LC <--> RAG[RAG Pipeline]
+        RAG <--> HF[HuggingFace Embeddings]
+        RAG <--> PC[(Pinecone Vector DB)]
+    end
+    
+    subgraph "LLM Providers"
+        LC <--> OpenAI[GPT-4o / GPT-4o-mini]
+        LC <--> Azure[Azure AI]
+        LC <--> Ollama[Llama 3 Local]
+    end
 ```
 
-## 3. System Architecture
+---
 
-```
-┌────────────────────────────────┐
-│   React Frontend (Vercel)      │
-│   - 5 tabs: Triage, RCA,      │
-│     Resolution, Escalation,    │
-│     SLA Timer                  │
-│   - Dark mode, PDF export      │
-│   - Provider toggle (OpenAI/   │
-│     Ollama/Azure)              │
-└───────────┬────────────────────┘
-            │ fetch("/api/triage")
-            │ fetch("/api/workflow")
-            │ etc.
-            ▼
-┌────────────────────────────────┐
-│   Python Backend (Railway)     │
-│   FastAPI + uvicorn            │
-│                                │
-│   ┌──────────────────────┐     │
-│   │  LangChain Chains    │     │     ┌──────────────┐
-│   │  (triage/rca/res/esc)│────────→  │ OpenAI API   │
-│   └──────────────────────┘     │     │ (GPT-4o-mini)│
-│                                │     └──────────────┘
-│   ┌──────────────────────┐     │     ┌──────────────┐
-│   │  LangGraph Workflow  │     │     │ Ollama Local │
-│   │  (StateGraph)        │────────→  │ (Llama3)     │
-│   └──────────────────────┘     │     └──────────────┘
-│                                │     ┌──────────────┐
-│   ┌──────────────────────┐     │     │ Azure AI     │
-│   │  RAG Pipeline        │────────→  │ (optional)   │
-│   │  embed → search →    │     │     └──────────────┘
-│   │  augment             │     │
-│   └──────────┬───────────┘     │
-│              │                 │
-│   ┌──────────▼───────────┐     │     ┌──────────────┐
-│   │  HuggingFace         │     │     │  Pinecone    │
-│   │  sentence-transformers│────────→ │  Vector DB   │
-│   │  (all-MiniLM-L6-v2)  │     │     │  384 dims    │
-│   └──────────────────────┘     │     └──────────────┘
-└────────────────────────────────┘
-```
+## 4. API Ecosystem
 
-## 4. API Endpoints
+| Method | Endpoint | Description | Core Technology |
+| :--- | :--- | :--- | :--- |
+| **POST** | `/api/auth/login` | Secure user authentication. | **JWT + Pydantic** |
+| **POST** | `/api/chatbot` | Intelligent agentic interaction. | **LangGraph + RAG** |
+| **POST** | `/api/triage` | Auto-classify & Priority assignment. | **RAG + Pinecone** |
+| **POST** | `/api/rca` | Root Cause Analysis generation. | **LangChain Chain** |
+| **POST** | `/api/escalation` | AI-powered email drafting. | **LangChain Chain** |
+| **POST** | `/api/workflow` | Full incident lifecycle automation. | **LangGraph StateGraph** |
+| **GET** | `/api/incidents/similar` | Semantic search for past incidents. | **Pinecone + HF** |
+| **POST** | `/api/incidents/seed` | Populate KB with sample data. | **Pinecone Ops** |
 
-| Method | Endpoint | Input | Output | Tech Stack |
-|--------|----------|-------|--------|------------|
-| POST | `/api/triage` | description, impact | triage JSON + similar incidents | **RAG + Pinecone + HuggingFace + LangChain** |
-| POST | `/api/rca` | symptoms, logs, timeline | markdown analysis | **LangChain** chain |
-| POST | `/api/resolution` | summary, actions, outcome | markdown resolution | **LangChain** chain |
-| POST | `/api/escalation` | id, summary, to, urgency | email draft | **LangChain** chain |
-| POST | `/api/workflow` | description, impact, mode | triage + RCA + resolution | **LangGraph** StateGraph |
-| GET | `/api/incidents/similar?q=` | query text | similar incidents list | **Pinecone + HuggingFace** |
-| POST | `/api/incidents/seed` | none | seed count | **Pinecone** sample data |
-| GET | `/api/health` | none | provider status | Health check |
+---
 
-## 5. Data Flow: Triage with RAG
+## 5. Core Data Flows
 
-```
-User types incident description
-        │
-        ▼
-Frontend: POST /api/triage { description, impact, provider }
-        │
-        ▼
-backend/routers/triage.py
-        │
-        ▼
-backend/rag/retriever.py: retrieve_and_triage()
-  │
-  ├─① HuggingFace: embed_text(description)
-  │     └── SentenceTransformer("all-MiniLM-L6-v2")
-  │         → 384-dimensional vector
-  │
-  ├─② Pinecone: query_similar(vector, top_k=3)
-  │     └── Cosine similarity search
-  │         → Top 3 similar past incidents
-  │
-  ├─③ Format RAG context:
-  │     "- [P1] Server down (Category: Database, Score: 92%)"
-  │     "- [P2] Performance issue (Category: Infra, Score: 78%)"
-  │
-  ├─④ LangChain: triage_chain.ainvoke({
-  │     rag_context, description, impact })
-  │     └── PromptTemplate | ChatOpenAI | JsonOutputParser
-  │         → { priority, category, team, actions, confidence }
-  │
-  └─⑤ Pinecone: upsert_incident(description, metadata)
-        └── Store this incident for future RAG
-        │
-        ▼
-Response: { triage: {...}, similar_incidents: [...] }
-        │
-        ▼
-Frontend renders: priority badge + actions + similar incidents
-```
+### 5.1 RAG-Augmented Triage
+1.  **User Input:** User describes the incident (e.g., "CRM slow").
+2.  **Vectorization:** HuggingFace converts the text into a 384-dimensional vector.
+3.  **Retrieval:** Pinecone performs a cosine similarity search to find the Top-K similar past cases.
+4.  **Augmentation:** Triage Prompt is augmented with the retrieved context.
+5.  **Inference:** GPT-4o generates a structured JSON (Priority, Category, Team).
+6.  **Persistence:** The new incident is stored in Pinecone for future RAG cycles.
 
-## 6. LangGraph Workflow
+### 5.2 LangGraph Agentic Workflow
+The system uses a **StateGraph** to manage the incident lifecycle:
+- **`classify` node:** Determines if the input requires a quick triage or a full analysis.
+- **`triage` node:** Executes RAG-augmented classification.
+- **`rca` node:** Analyzes logs and symptoms to suggest root causes.
+- **`resolution` node:** Drafts a resolution based on the entire context.
 
-```
-┌─────────────┐
-│   START     │  Input: { description, impact, mode, provider }
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  classify   │  Determine: "full" or "triage_only"
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   triage    │  RAG-augmented triage
-│   + RAG     │  (Pinecone + HuggingFace + LangChain)
-└──────┬──────┘
-       │
-  ┌────┴────┐
-  │ mode?   │
-  ├─full────┤
-  │         ▼
-  │  ┌──────────┐
-  │  │   RCA    │  Auto-suggest root cause
-  │  │  suggest │  based on triage output
-  │  └────┬─────┘
-  │       │
-  │       ▼
-  │  ┌──────────┐
-  │  │resolution│  Draft resolution template
-  │  │  draft   │  based on triage + RCA
-  │  └────┬─────┘
-  │       │
-  └──┬────┘
-     ▼
-┌─────────────┐
-│    END      │  Output: { triage_result, rca_result,
-└─────────────┘           resolution_draft, similar_incidents }
-```
+---
 
-## 7. Pinecone Vector DB Schema
+## 6. Deployment & Environment
 
-- **Index:** `it-incidents`
-- **Dimensions:** 384 (matches all-MiniLM-L6-v2)
-- **Metric:** cosine
-- **Namespace:** `incidents`
+### Deployment Strategy
+- **Frontend:** Hosted on **Vercel** with automatic CI/CD.
+- **Backend:** Scaled on **Railway** via `Procfile` configuration.
+- **Vector DB:** **Pinecone** (Serverless/Starter tier).
 
-**Metadata per vector:**
-```json
-{
-  "description": "Production server down...",
-  "impact": "500+ users",
-  "priority": "P1",
-  "category": "Database",
-  "suggested_team": "DBA Team",
-  "timestamp": "2026-04-04T12:00:00"
-}
-```
+### Environment Variables
+| Variable | Purpose |
+| :--- | :--- |
+| `OPENAI_API_KEY` | Access to GPT models. |
+| `PINECONE_API_KEY` | Access to Vector DB. |
+| `PINECONE_INDEX_NAME` | Target index for RAG. |
+| `FRONTEND_URL` | CORS configuration for security. |
+| `VITE_API_URL` | Frontend pointer to the backend API. |
 
-## 8. Key Python Patterns
+---
 
-| Pattern | File | Explanation |
-|---------|------|-------------|
-| LCEL (LangChain Expression Language) | `chains.py` | `prompt \| llm \| parser` pipe syntax |
-| Pydantic Settings | `config.py` | Type-safe env var loading |
-| Dependency Injection | `providers.py` | `get_llm(provider)` factory pattern |
-| Lazy Loading | `service.py` | Model loaded on first use, cached globally |
-| StateGraph | `workflow.py` | LangGraph state machine with conditional edges |
-| RAG Pipeline | `retriever.py` | Retrieve → Augment → Generate |
+**UnifiedITSM Architecture** - Researched and developed by **GreenAI Team**
 
-## 9. How to Run
-
-```bash
-# Backend (Terminal 1)
-cd backend
-pip install -r requirements.txt
-python main.py
-# → http://localhost:8000 (API docs: /docs)
-
-# Frontend (Terminal 2)
-npm run dev
-# → http://localhost:5173 (auto-proxies /api to :8000)
-
-# Seed Pinecone with sample data
-curl -X POST http://localhost:8000/api/incidents/seed
-
-# Health check
-curl http://localhost:8000/api/health
-```
-
-## 10. Deploy
-
-| Component | Platform | URL |
-|-----------|----------|-----|
-| Frontend | Vercel (free) | https://it-incident-assistant.vercel.app |
-| Backend | Railway (free 500h/month) | https://your-backend.railway.app |
-
-**Environment Variables (Railway):**
-- `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`
-- `PINECONE_API_KEY`, `PINECONE_INDEX_NAME`
-- `FRONTEND_URL` (Vercel URL for CORS)
-
-**Environment Variables (Vercel):**
-- `VITE_API_URL` → Railway backend URL
+*"Building the future of IT Service Management through Intelligence."*
